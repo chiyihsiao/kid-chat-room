@@ -78,12 +78,12 @@ show_chat_and_users()
 
 st.divider()
 
-# 6. 【核心修正】使用 st.form 包裹輸入區域，徹底根除雙重觸發 BUG
-# 使用變數改變 key，讓每次送出後輸入框強制重置為空
+# 6. 使用 st.form 包裹輸入區域，徹底根除雙重觸發 BUG
 form_key = f"chat_form_{st.session_state.input_clear_trigger}"
 
 with st.form(key=form_key, clear_on_submit=True):
-    col1, col2 = st.columns()
+    # 💡 核心修復：加上 [1, 3] 參數，修復 Streamlit 雲端報錯問題！
+    col1, col2 = st.columns([1, 3])
     
     with col1:
         user_name = st.text_input("我的名字", value=st.session_state.my_name_state)
