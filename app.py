@@ -22,38 +22,13 @@ shared_users = shared_data["users"]
 if "last_msg_count" not in st.session_state:
     st.session_state.last_msg_count = len(shared_messages)
 
-# 4. 初始化目前使用者的預設名字
+# 4. 初始化目前使用者的預設名字與輸入框清空狀態
 if "my_name_state" not in st.session_state:
     st.session_state.my_name_state = "小朋友"
+if "input_clear_trigger" not in st.session_state:
+    st.session_state.input_clear_trigger = 0
 
-# 5. 定義「傳送訊息」的動作
-def send_message():
-    # 💡 檢查 session_state 中是否有輸入框的值
-    user_input = st.session_state.get("chat_user_input", "")
-    user_name = st.session_state.get("my_name_state", "小朋友")
-    
-    # 核心防重複機制：如果輸入框已經是空的（可能被另一個事件清空了），就直接跳出不執行
-    if not user_input or not user_input.strip():
-        return
-        
-    if user_name.strip():
-        tz_taiwan = timezone(timedelta(hours=8))
-        now = datetime.now(tz_taiwan)
-        time_str = now.strftime("%H:%M")
-        
-        shared_messages.append({
-            "name": user_name, 
-            "text": user_input,
-            "time": time_str
-        })
-        shared_users[user_name] = time.time()
-        
-    # 【關鍵】立刻清空 session_state 中的字，防止第二次重複觸發
-    st.session_state.chat_user_input = ""
-    # 強制網頁立刻刷新，中斷按鈕的二次連動
-    st.rerun()
-
-# 6. 建立每秒自動更新的聊天與人數區域
+# 5. 建立每秒自動更新的聊天與人數區域
 @st.fragment(run_every=1.0)
 def show_chat_and_users():
     current_time = time.time()
@@ -103,19 +78,40 @@ show_chat_and_users()
 
 st.divider()
 
-# 7. 輸入區域
-col1, col2 = st.columns([1, 3]) # 調整比例
+# 6. 【核心修正】使用 st.form 包裹輸入區域，徹底根除雙重觸發 BUG
+# 使用變數改變 key，讓每次送出後輸入框強制重置為空
+form_key = f"chat_form_{st.session_state.input_clear_trigger}"
 
-with col1:
-    st.text_input("我的名字", value="小朋友", key="my_name_state")
-
-with col2:
-    st.text_input(
-        "輸入訊息...", 
-        placeholder="說點什麼吧...", 
-        key="chat_user_input",
-        on_change=send_message
-    )
-
-# 傳送按鈕
-st.button("傳送訊息", use_container_width=True, on_click=send_message)
+with st.form(key=form_key, clear_on_submit=True):
+    col1, col2 = st.columns()
+    
+    with col1:
+        user_name = st.text_input("我的名字", value=st.session_state.my_name_state)
+    
+    with col2:
+        user_input = st.text_input("輸入訊息...", placeholder="說點什麼吧...")
+        
+    # 表單專用的送出按鈕
+    submitted = st.form_submit_button("傳送訊息", use_container_width=True)
+    
+    if submitted:
+        # 更新全域名字
+        if user_name.strip():
+            st.session_state.my_name_state = user_name
+            
+        # 檢查並加入新訊息
+        if user_input and user_input.strip():
+            tz_taiwan = timezone(timedelta(hours=8))
+            now = datetime.now(tz_taiwan)
+            time_str = now.strftime("%H:%M")
+            
+            shared_messages.append({
+                "name": user_name, 
+                "text": user_input,
+                "time": time_str
+            })
+            shared_users[user_name] = time.time()
+            
+            # 改變計算機，讓輸入框強置變回空白
+            st.session_state.input_clear_trigger += 1
+            st.rerun()
