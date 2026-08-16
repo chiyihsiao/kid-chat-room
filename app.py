@@ -54,7 +54,6 @@ def show_chat_and_users():
         chat_html += f'<div style="margin-bottom:8px;"><strong>{msg["name"]}</strong> <span style="color:gray; font-size:0.8rem;">({msg["time"]})</span>： {msg["text"]}</div>'
     chat_html += '</div>'
     
-    # 💡 【修正】補上 JavaScript 的結束大括號 `}`，防範語法錯誤
     js_code = """
     <script>
         var container = document.getElementById("my-chat-container");
@@ -64,7 +63,6 @@ def show_chat_and_users():
     """
     
     if has_new_message:
-        # 💡 【修正】將網址換成真實的提示音效 .mp3 檔案
         js_code += """
         var audio = new Audio("https://mixkit.co");
         audio.volume = 0.3;
@@ -84,9 +82,10 @@ st.divider()
 form_key = f"chat_form_{st.session_state.input_clear_trigger}"
 
 with st.form(key=form_key, clear_on_submit=True):
-    col1, col2 = st.columns([1, 3])
+    col1, col2 = st.columns([1, 3])  # 保持 1:3 比例黃金配比
     
     with col1:
+        # 💡 這裡的名字欄位會隨著每次整頁刷新正確抓到新名字
         user_name = st.text_input("我的名字", value=st.session_state.my_name_state)
     
     with col2:
@@ -95,29 +94,35 @@ with st.form(key=form_key, clear_on_submit=True):
     submitted = st.form_submit_button("傳送訊息", use_container_width=True)
     
     if submitted:
+        # 💡 先記錄有沒有更改名字
+        name_changed = user_name.strip() and user_name != st.session_state.my_name_state
+        
         if user_name.strip():
             st.session_state.my_name_state = user_name
             
         if user_input and user_input.strip():
-            
             # 🕵️‍♂️ 【爸爸的隱藏快捷指令】
-            # 只要在訊息欄輸入 /clear all 就能一鍵清空，而且這行字絕不會漏給小朋友看到！
             if user_input.strip() == "/clear all":
                 shared_messages.clear()
                 shared_messages.append({"name": "系統管理員", "text": "聊天紀錄已被管理者清空！", "time": "系統訊息"})
                 st.session_state.input_clear_trigger += 1
                 st.rerun()
-                
             else:
-                # 正常人的聊天訊息流程
+                # 正常傳送訊息的流程
                 tz_taiwan = timezone(timedelta(hours=8))
                 now = datetime.now(tz_taiwan)
                 time_str = now.strftime("%H:%M")
                 
                 shared_messages.append({
-                    "name": user_name, 
+                    "name": st.session_state.my_name_state, 
                     "text": user_input,
                     "time": time_str
                 })
-                shared_users[user_name] = time.time()
+                shared_users[st.session_state.my_name_state] = time.time()
                 st.session_state.input_clear_trigger += 1
+                st.rerun()  # 💡 【關鍵修正】送出訊息後強迫整頁重整，讓名字輸入框同步刷新！
+        
+        # 💡 如果使用者「只有改名字，沒有打任何字」就按傳送，也要強迫重整畫面
+        elif name_changed:
+            st.session_state.input_clear_trigger += 1
+            st.rerun()
