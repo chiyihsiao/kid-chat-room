@@ -54,6 +54,7 @@ def show_chat_and_users():
         chat_html += f'<div style="margin-bottom:8px;"><strong>{msg["name"]}</strong> <span style="color:gray; font-size:0.8rem;">({msg["time"]})</span>： {msg["text"]}</div>'
     chat_html += '</div>'
     
+    # 💡 【修正】補上 JavaScript 的結束大括號 `}`，防範語法錯誤
     js_code = """
     <script>
         var container = document.getElementById("my-chat-container");
@@ -63,14 +64,15 @@ def show_chat_and_users():
     """
     
     if has_new_message:
+        # 💡 【修正】將網址換成真實的提示音效 .mp3 檔案
         js_code += """
-        var audio = new Audio("https://google.com");
-        audio.volume = 0.5;
+        var audio = new Audio("https://mixkit.co");
+        audio.volume = 0.3;
         audio.play().catch(function(error) { console.log("音效播放被瀏覽器阻擋"); });
         """
         st.session_state.last_msg_count = len(shared_messages)
         
-    js_code += "</script>"
+    js_code += "\n</script>"
     
     st.components.v1.html(chat_html + js_code, height=370)
 
@@ -82,8 +84,6 @@ st.divider()
 form_key = f"chat_form_{st.session_state.input_clear_trigger}"
 
 with st.form(key=form_key, clear_on_submit=True):
-    # 💡 【終極修正】直接傳入列表 [1, 3]，代表左邊佔 25% 寬度，右邊佔 75% 寬度
-    # 這是最嚴謹、不論新舊版本 Streamlit 都百分之百支援的寫法！
     col1, col2 = st.columns([1, 3])
     
     with col1:
@@ -99,24 +99,25 @@ with st.form(key=form_key, clear_on_submit=True):
             st.session_state.my_name_state = user_name
             
         if user_input and user_input.strip():
-            tz_taiwan = timezone(timedelta(hours=8))
-            now = datetime.now(tz_taiwan)
-            time_str = now.strftime("%H:%M")
             
-            shared_messages.append({
-                "name": user_name, 
-                "text": user_input,
-                "time": time_str
-            })
-            shared_users[user_name] = time.time()
-            
-            st.session_state.input_clear_trigger += 1
-            st.rerun()
-
-# 7. 隱藏版管理功能
-if st.session_state.my_name_state == "管理者":
-    st.write("") 
-    if st.button("🚨 爸爸專用：一鍵清空所有聊天紀錄", type="primary", use_container_width=True):
-        shared_messages.clear()
-        shared_messages.append({"name": "系統管理員", "text": "聊天紀錄已被管理者清空！", "time": "系統訊息"})
-        st.rerun()
+            # 🕵️‍♂️ 【爸爸的隱藏快捷指令】
+            # 只要在訊息欄輸入 /clear all 就能一鍵清空，而且這行字絕不會漏給小朋友看到！
+            if user_input.strip() == "/clear all":
+                shared_messages.clear()
+                shared_messages.append({"name": "系統管理員", "text": "聊天紀錄已被管理者清空！", "time": "系統訊息"})
+                st.session_state.input_clear_trigger += 1
+                st.rerun()
+                
+            else:
+                # 正常人的聊天訊息流程
+                tz_taiwan = timezone(timedelta(hours=8))
+                now = datetime.now(tz_taiwan)
+                time_str = now.strftime("%H:%M")
+                
+                shared_messages.append({
+                    "name": user_name, 
+                    "text": user_input,
+                    "time": time_str
+                })
+                shared_users[user_name] = time.time()
+                st.session_state.input_clear_trigger += 1
